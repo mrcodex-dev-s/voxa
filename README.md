@@ -36,7 +36,7 @@ def home():
 Voxa is not on PyPI yet, so install from source:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/voxa.git
+git clone https://github.com/mrcodex-dev-s/voxa.git
 cd voxa
 pip install -e .
 ```
