@@ -20,16 +20,19 @@ def page():
     return scene
 ```
 
-> **Status:** early release (v0.6). The API may change.
+> **Status:** early release (v0.9). The API may change.
 
 ## Features
 
 - **File-based routing:** every file in `pages/` is a page, including dynamic routes like `pages/blog/[slug].py`
 - **Primitives and models:** `Box`, `Sphere`, and `.glb` / glTF files with `Model`
+- **Materials and textures:** images, metal, glass, glow, wireframe, plus shadows and studio reflections
+- **Text and buttons:** `Text("Hello")` in any language, including Bangla, with optional button background
 - **Animations:** `Bounce`, `Move`, `ColorShift`, `Pulse`, plus `spin`
 - **Interaction in Python:** `on_click` handlers, hover effects, clickable links between pages
 - **Physics:** gravity, collisions and bouncing with one argument
 - **Dev server:** `voxa dev` with automatic browser reload
+- **Static export:** `voxa build` makes plain files you can host for free (GitHub Pages, Netlify, Cloudflare Pages)
 - **Works on a phone:** touch drag to orbit, tap to click
 
 ## Installation
@@ -37,7 +40,7 @@ def page():
 Voxa is not on PyPI yet, so install from source:
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/voxa.git
+git clone https://github.com/mrcodex-dev-s/voxa.git
 cd voxa
 pip install -e .
 ```
@@ -106,6 +109,55 @@ Model("duck.glb", scale=1.5, spin=0.5)      # file lives in assets/
 ```
 
 `spin` is the rotation speed around the Y axis in radians per second. Every object also accepts `scale`.
+
+### Materials and textures
+
+```python
+Sphere(color="#fbbf24", metalness=1.0, roughness=0.15)              # polished gold
+Box(texture="wood.jpg", texture_repeat=(4, 4))                      # image from assets/, tiled
+Box(color="#ef4444", opacity=0.5)                                   # glass-like
+Sphere(color="#ffffff", emissive="#22d3ee")                         # glowing
+Sphere(wireframe=True)                                              # just the edges
+```
+
+| Option           | Meaning                                                              |
+| ---------------- | -------------------------------------------------------------------- |
+| `texture`        | Image file in `assets/` (or a full URL). Stretched over the object   |
+| `texture_repeat` | `(u, v)` number of times the image tiles                             |
+| `metalness`      | `0` plastic or stone, `1` metal                                      |
+| `roughness`      | `0` mirror-smooth, `1` matte                                         |
+| `opacity`        | Below `1` is see-through                                             |
+| `emissive`       | Glow colour                                                          |
+| `wireframe`      | Draw only the edges                                                  |
+
+With a texture, `color` tints the image. Leave it unset to show the image as it is.
+
+Scene options:
+
+```python
+Scene(shadows=True)         # objects cast and receive shadows from the point light
+Scene(environment=True)     # soft studio reflections; on automatically when an object has metalness > 0.3
+```
+
+Metal needs something to reflect, which is why `environment` switches on by itself for metallic objects. Click handlers can change material options too (for example `obj.metalness = 1`). Materials apply to `Box` and `Sphere`; `Model` and `Text` keep their own look.
+
+### Text and buttons
+
+```python
+Text("Hello", size=0.7, position=(0, 2, 0), color="#f8fafc")
+Text("বাংলা লেখা", size=0.4)                                   # any language the device has a font for
+Text("Tap me", size=0.3, background="#2563eb", on_click=tap)    # looks and works like a button
+```
+
+Text always faces the camera. It supports `link`, `on_click`, `hover_scale` and animations, and a click handler can change it:
+
+```python
+def tap(obj):
+    obj.taps = getattr(obj, "taps", 0) + 1
+    obj.text = f"Taps: {obj.taps}"
+```
+
+Text does not support `hover_color` or `physics`.
 
 ### Animations
 
@@ -187,6 +239,33 @@ scene.add(Model("duck.glb"))
 | `voxa dev`                | Run the dev server with auto reload              |
 | `voxa dev --port 9000`    | Use a different port                             |
 | `voxa dev --host 0.0.0.0` | Make the site reachable from other devices       |
+| `voxa build`              | Export the site as static files into `dist/`     |
+| `voxa build --base /name` | Same, for a site hosted under `/name/`           |
+
+## Deploying
+
+```bash
+voxa build                      # writes the site into dist/
+python -m http.server -d dist   # preview it locally at http://localhost:8000
+```
+
+`dist/` is plain HTML, so any static host works. For a GitHub Pages **project site** (served at `username.github.io/name/`), build with the sub-path so links and models resolve:
+
+```bash
+voxa build --base /name
+```
+
+What works on a static site: pages, links, hover, animations, physics, text and models. What does not: `on_click` handlers, because they run in Python and need a server (use `voxa dev` or host the server yourself).
+
+Dynamic pages are only built for the values you list. Add a `paths()` function to the page file:
+
+```python
+# pages/blog/[slug].py
+def paths():
+    return [{"slug": "hello"}, {"slug": "world"}]   # builds /blog/hello and /blog/world
+```
+
+`voxa build` never deletes a folder it did not create; point `--out` at a new folder name if it complains.
 
 ## How it works
 
@@ -197,12 +276,118 @@ Python builds a scene description, the server exposes it as JSON, and a small Th
 - [x] File-based routing and dynamic routes
 - [x] Click and hover events
 - [x] Physics
-- [ ] Text and UI overlays (titles, buttons)
-- [ ] Textures and materials
+- [x] Text and buttons
+- [ ] HTML overlays (forms, menus)
+- [x] Textures, materials and shadows
 - [ ] Multiplayer: a live shared scene
 - [ ] Phone gyroscope, VR and AR
-- [ ] `voxa build` for static export and deployment
+- [x] `voxa build` for static export
 - [ ] PyPI release
+
+## Version history
+
+| Version | Highlights |
+| ------- | ---------- |
+| **v0.1** | First MVP: `Scene`, `Box`, `Sphere`, `Light`, `@app.page`, `voxa new`, `voxa dev` |
+| **v0.2** | 3D models: `Model` loads `.glb` files from `assets/` |
+| **v0.3** | Animations: `Bounce`, `Move`, `ColorShift`, `Pulse` |
+| **v0.4** | Page links: tap an object to open another page |
+| **v0.5** | Python event handlers: `on_click`, hover effects, per-visitor state |
+| **v0.6** | File-based routing (`pages/`), dynamic routes, physics |
+| **v0.7** | `Text` and buttons (any language), better phone camera |
+| **v0.8** | `voxa build`: static export for free hosting |
+| **v0.9** | Textures, materials, shadows and reflections |
+
+### v0.1: the first MVP
+
+The foundation: write a scene in Python and see it in the browser.
+
+- `Scene`, `Box`, `Sphere` and `Light` (`Light.ambient()`, `Light.point()`)
+- `App` with the `@app.page("/path")` decorator for multiple pages
+- `voxa new <name>` creates a project, `voxa dev` runs the dev server
+- FastAPI server with a bundled Three.js runtime that loads the scene as JSON
+- Browser reloads by itself when the server restarts
+- Drag to orbit, pinch or scroll to zoom
+- Dependencies kept small (`fastapi`, `uvicorn`, `typer`), so it also installs on phones with Termux
+
+### v0.2: 3D models
+
+- `Model("duck.glb", scale=1.5, spin=0.5)` loads glTF / GLB files
+- Files in the project's `assets/` folder are served at `/assets/...`
+- `voxa new` creates the `assets/` folder
+- Full URLs and absolute paths are accepted as the model source
+
+### v0.3: animations
+
+- New module with `Bounce`, `Move`, `ColorShift` and `Pulse`
+- Attach with `.animate(...)`, any number per object: `Box().animate(Bounce(), ColorShift(to="gold"))`
+- `Model` accepts `animations=[...]`
+- `ColorShift` works on `Box` and `Sphere` only
+
+### v0.4: page links
+
+- `link="/about"` on any object opens that page when tapped or clicked
+- A short tap counts as a click, a drag only rotates the camera
+- The cursor becomes a pointer over linked objects
+- The starter project got two pages that link to each other
+
+### v0.5: events in Python
+
+- `on_click=handler` runs a plain Python function on every click; a handler can take `(obj)` or `(obj, scene)`
+- Decorator form: `@box.clicked`
+- `hover_color` and `hover_scale` react to the pointer without a server round trip
+- Every visitor gets their own copy of the scene, so clicks never affect other people
+- Handlers can change `color`, `position`, `rotation`, `scale`, `spin`, `animations` and hover settings; only changed objects are sent back
+- If a handler adds or removes objects the page reloads; errors inside a handler are printed in the terminal and the server keeps running
+- Every object gained a `scale` option
+
+### v0.6: file-based routing and physics
+
+- **Routing:** every `.py` file in `pages/` is a page. `index.py` is `/`, `about.py` is `/about`, folders become path segments. Each file defines `page()` and returns a `Scene`
+- **Dynamic routes:** `pages/blog/[slug].py` matches `/blog/anything` and receives `slug` as an argument
+- Files and folders starting with `_` are ignored; `app.py` with `@app.page` still works alongside `pages/`
+- **Physics:** `physics=True` (falls and collides) or `physics="static"` (solid ground), plus `mass`, `bounciness` and `Scene(gravity=...)`
+- Moving a physics object from a click handler moves its body too
+- `voxa new` now creates a `pages/` project with `index`, `about`, `physics` and `blog/[slug]` examples instead of a single `app.py`
+- The physics engine (cannon-es) is only downloaded by pages that use it
+- Physics is not supported on `Model` or `Text`
+
+### v0.7: text and phone support
+
+- `Text("Hello", size=0.7, color="#f8fafc")` draws text in the scene, always facing the camera
+- Works in any language the device has a font for, including Bangla
+- `background="#2563eb"` gives it a button look; `link`, `on_click`, `hover_scale` and animations work on it
+- A click handler can change the text (`obj.text = "Taps: 3"`), for example to build a counter
+- On tall, narrow screens the camera steps back automatically so wide scenes are not cut off
+- The starter home page got a title and a "Tap me" counter button
+- `Text` does not support `hover_color` or `physics`
+
+### v0.8: static export
+
+- `voxa build` writes the whole site into `dist/` as plain HTML, ready for GitHub Pages, Netlify or Cloudflare Pages
+- `voxa build --base /name` for sites served from a sub-path such as `username.github.io/name/`
+- `--out` chooses the output folder; `assets/` is copied along and a `.nojekyll` file is added
+- Dynamic pages are built only for the values returned by `paths()` in the page file; pages without `paths()` are skipped and reported
+- `voxa build` never deletes a folder it did not create
+- Links, hover, animations, physics, text and models work on a static site; `on_click` handlers do not, because they need a server
+- Preview with `python -m http.server -d dist`
+
+### v0.9: textures and materials
+
+- `texture="wood.jpg"` (from `assets/`, or a full URL) and `texture_repeat=(u, v)` for tiling
+- `metalness`, `roughness`, `opacity`, `emissive` and `wireframe` on `Box` and `Sphere`
+- With a texture, `color` tints the image; left unset, the image shows as it is
+- `Scene(shadows=True)` for shadows from the point light
+- `Scene(environment=True)` for soft studio reflections; it switches on automatically when an object has `metalness > 0.3`
+- Click handlers can change material options at runtime
+- `voxa new` creates a demo texture (`assets/checker.png`) and a `/materials` page showing gold, matte, glass, glow, wireframe and a textured floor
+- Materials do not apply to `Model` and `Text`
+
+### Upgrading
+
+- From v0.5 to v0.6, project layout changed for new projects only. Old `app.py` projects keep working; you can mix both styles
+- Static builds (v0.8) skip dynamic pages until you add `paths()` to them
+- Every version keeps the earlier options working, so old scenes need no changes
 
 ## Contributing
 
